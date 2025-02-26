@@ -1,4 +1,4 @@
-from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils.translation import gettext_lazy as _
 from django.db import models
 
@@ -23,14 +23,20 @@ class CustomUserManager(BaseUserManager):
 
         return self.create_user(email, password, **extra_fields)
 
-class CustomUser(AbstractUser):
-    username = None  # Remove the username field
+class CustomUser(AbstractBaseUser, PermissionsMixin):
+    # username = None  # Remove the username field
     email = models.EmailField(_('email address'), unique=True)  # Make email unique and required
+
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=True)
+    is_superuser = models.BooleanField(default=False)
+    is_admin = models.BooleanField(default=False)
+    
+    objects = CustomUserManager()  # Use the custom user manager
 
     USERNAME_FIELD = 'email'  # Use email as the unique identifier
     REQUIRED_FIELDS = []  # No additional required fields
-
-    objects = CustomUserManager()  # Use the custom user manager
+    
 
     def __str__(self):
         return self.email
@@ -38,11 +44,11 @@ class CustomUser(AbstractUser):
 
 # Poll Model
 class Poll(models.Model):
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True, related_name="polls")
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="polls")
     question = models.CharField(max_length=300)
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)  # Fixed to auto update
 
     def __str__(self):
         return self.question
@@ -53,6 +59,10 @@ class Choice(models.Model):
     voters = models.ManyToManyField(CustomUser, related_name="voted_choices", blank=True)
     poll = models.ForeignKey(Poll, on_delete=models.CASCADE, related_name="choices")
     created_at = models.DateTimeField(auto_now_add=True)
-    
+    updated_at = models.DateTimeField(auto_now=True)  # Fixed to auto update
+
+    def vote_count(self):
+        return self.voters.count()  # Returns number of votes for this choice
+
     def __str__(self):
         return self.choice_text
