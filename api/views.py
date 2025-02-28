@@ -4,6 +4,10 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from .serializers import UserSerializer, PollSerializer, ChoiceSerializer
 from .models import Poll, Choice, CustomUser
 
+from rest_framework.response import Response
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
 # ✅ Create User View
 class CreateUserView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
@@ -18,8 +22,24 @@ class PollListCreate(generics.ListCreateAPIView):
     def get_queryset(self):
         return Poll.objects.filter(user=self.request.user)
     
+    # def perform_create(self, serializer):
+    #     serializer.save(user=self.request.user)  # ✅ Automatically assigns the user
+
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)  # ✅ Automatically assigns the user
+        # Save the new poll
+        poll = serializer.save(user=self.request.user)
+
+        # Send real-time WebSocket notification
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "poll_updates",
+            {
+                "type": "broadcast_poll",
+                "poll": PollSerializer(poll).data,  # Serialize poll data
+            },
+        )
+
+        return Response(PollSerializer(poll).data)
 
 # ✅ Delete Poll
 class PollDelete(generics.DestroyAPIView):

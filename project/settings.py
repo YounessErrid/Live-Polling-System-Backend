@@ -55,6 +55,9 @@ SIMPLE_JWT = {
 # Application definition
 
 INSTALLED_APPS = [
+    # "channels",
+    'daphne', # ⬅ ASGI Webserver
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -69,6 +72,13 @@ INSTALLED_APPS = [
     # Custom apps
     'api',
 ]
+
+ASGI_APPLICATION = 'project.asgi.application'
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",  # For testing, use Redis in production
+    },
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
