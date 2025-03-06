@@ -2,8 +2,18 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.utils.translation import gettext_lazy as _
 from django.db import models
 
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.utils.translation import gettext_lazy as _
+from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+# -------------------------
+# Custom User Manager
+# -------------------------
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
+        # Create and return a regular user with an email and password.
         if not email:
             raise ValueError('The Email field must be set')
         email = self.normalize_email(email)
@@ -13,6 +23,7 @@ class CustomUserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
+        # Create and return a superuser with all permissions.
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
 
@@ -23,23 +34,47 @@ class CustomUserManager(BaseUserManager):
 
         return self.create_user(email, password, **extra_fields)
 
+# -------------------------
+# Custom User Model
+# -------------------------
 class CustomUser(AbstractBaseUser, PermissionsMixin):
-    # username = None  # Remove the username field
-    email = models.EmailField(_('email address'), unique=True)  # Make email unique and required
+    email = models.EmailField(_('email address'), unique=True)  # Unique email
+    fullname = models.CharField(max_length=255, blank=True, null=True)
 
     is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)  # Default should be False
     is_superuser = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)
     
-    objects = CustomUserManager()  # Use the custom user manager
+    objects = CustomUserManager()  # Attach the custom manager
 
     USERNAME_FIELD = 'email'  # Use email as the unique identifier
     REQUIRED_FIELDS = []  # No additional required fields
-    
 
     def __str__(self):
         return self.email
+
+# -------------------------
+# Profile Model
+# -------------------------
+class Profile(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name="profile")
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    date_of_birth = models.DateField(blank=True, null=True)
+    image = models.ImageField(upload_to="profile_images/", blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Profile of {self.user.email}"
+
+# -------------------------
+# Automatically Create Profile After User is Created
+# -------------------------
+@receiver(post_save, sender=CustomUser)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        Profile.objects.create(user=instance)
 
 
 # Poll Model
