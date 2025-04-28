@@ -9,18 +9,19 @@ from .models import Poll, Choice, CustomUser
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
-# ✅ Create User View
+# Create User View
 class CreateUserView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = UserSerializer
     permission_classes = [AllowAny]
+
 # -----------------
 # GET All Polls
 # -----------------
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_polls(request):
-    polls = Poll.objects.all()
+    polls = Poll.objects.filter(user=request.user)
     serializerData = PollSerializer(polls, many=True).data
     return Response(serializerData)
 
@@ -40,7 +41,7 @@ def create_poll(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # ------------------------
-# GET, PUT, DELETE Polls
+# GET, PUT, DELETE Poll
 # ------------------------
 @api_view(['GET','PUT','DELETE'])
 @permission_classes([IsAuthenticated])
@@ -127,3 +128,4 @@ def choice_detail(request, pk):
             serializer.save(poll=request.poll)
             return Response(serializer.data)
         return Response(serializer.errors ,status=status.HTTP_400_BAD_REQUEST)
+    
